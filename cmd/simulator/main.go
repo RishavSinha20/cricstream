@@ -1,9 +1,9 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
+	"time"
 
+	"github.com/RishavSinha20/cricstream/internal/kafka"
 	"github.com/RishavSinha20/cricstream/internal/match"
 	"github.com/RishavSinha20/cricstream/internal/models"
 	"github.com/RishavSinha20/cricstream/internal/utils"
@@ -12,6 +12,10 @@ import (
 func main() {
 
 	utils.InitRandom()
+
+	producer := kafka.NewProducer(
+		[]string{"localhost:9092"},
+	)
 
 	events := make(chan models.MatchEvent, 100)
 
@@ -25,20 +29,12 @@ func main() {
 		events,
 	)
 
-	go match.StartMatch(
-		"rcb_vs_csk",
-		events,
-	)
+	for {
 
-	for event := range events {
+		event := <-events
 
-		data, err := json.Marshal(event)
+		producer.PublishMatchEvent(event)
 
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		fmt.Println(string(data))
+		time.Sleep(500 * time.Millisecond)
 	}
 }
