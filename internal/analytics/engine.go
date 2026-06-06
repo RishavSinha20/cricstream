@@ -1,9 +1,12 @@
 package analytics
 
 import (
+	"encoding/json"
+	"log"
 	"sync"
 
 	"github.com/RishavSinha20/cricstream/internal/models"
+	"github.com/RishavSinha20/cricstream/internal/redisstore"
 )
 
 var (
@@ -45,6 +48,28 @@ func ProcessEvent(event models.MatchEvent) {
 
 	if overs > 0 {
 		stats.RunRate = float64(stats.Score) / overs
+	}
+
+	// Store latest analytics in Redis
+	if redisstore.Client != nil {
+
+		data, err := json.Marshal(stats)
+
+		if err != nil {
+			log.Println("marshal error:", err)
+			return
+		}
+
+		err = redisstore.Client.Set(
+			redisstore.Ctx,
+			event.MatchID,
+			data,
+			0,
+		).Err()
+
+		if err != nil {
+			log.Println("redis write error:", err)
+		}
 	}
 }
 
