@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>CricStream Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family: Inter, Arial, sans-serif;
+}
+
+body{
+    background:#0f172a;
+    color:white;
+    min-height:100vh;
+    padding:30px;
+}
+
+.container{
+    max-width:1400px;
+    margin:auto;
+}
+
+.header{
+    margin-bottom:30px;
+}
+
+.header h1{
+    font-size:40px;
+}
+
+.header p{
+    color:#94a3b8;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:20px;
+}
+
+.card{
+    background:rgba(255,255,255,0.05);
+    backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:18px;
+    padding:20px;
+}
+
+.card-title{
+    color:#94a3b8;
+    font-size:14px;
+}
+
+.card-value{
+    margin-top:10px;
+    font-size:38px;
+    font-weight:bold;
+}
+
+.section{
+    margin-top:30px;
+}
+
+.chart-card{
+    background:rgba(255,255,255,0.05);
+    border-radius:18px;
+    padding:20px;
+}
+
+.table-card{
+    background:rgba(255,255,255,0.05);
+    border-radius:18px;
+    padding:20px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th,td{
+    padding:12px;
+    text-align:left;
+}
+
+tr{
+    border-bottom:1px solid rgba(255,255,255,0.08);
+}
+
+.status-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:15px;
+}
+
+.status{
+    padding:20px;
+    border-radius:14px;
+    background:rgba(255,255,255,0.05);
+}
+
+.green{
+    color:#22c55e;
+}
+
+.red{
+    color:#ef4444;
+}
+
+canvas{
+    margin-top:20px;
+}
+
+@media(max-width:700px){
+    .status-grid{
+        grid-template-columns:1fr;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h1>🏏 CricStream</h1>
+        <p>Real-Time Cricket Analytics Platform</p>
+    </div>
+
+    <div class="grid">
+
+        <div class="card">
+            <div class="card-title">Score</div>
+            <div id="score" class="card-value">0/0</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Run Rate</div>
+            <div id="runrate" class="card-value">0.00</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Fours</div>
+            <div id="fours" class="card-value">0</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Sixes</div>
+            <div id="sixes" class="card-value">0</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Balls</div>
+            <div id="balls" class="card-value">0</div>
+        </div>
+
+    </div>
+
+    <div class="section chart-card">
+
+        <h2>Run Rate Trend</h2>
+
+        <canvas id="runRateChart"></canvas>
+
+    </div>
+
+    <div class="section table-card">
+
+        <h2>Recent Events</h2>
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Over</th>
+                    <th>Event</th>
+                </tr>
+            </thead>
+
+            <tbody id="eventsTable">
+
+                <tr>
+                    <td>18.1</td>
+                    <td>SINGLE</td>
+                </tr>
+
+                <tr>
+                    <td>18.2</td>
+                    <td>FOUR</td>
+                </tr>
+
+                <tr>
+                    <td>18.3</td>
+                    <td>SIX</td>
+                </tr>
+
+                <tr>
+                    <td>18.4</td>
+                    <td>WICKET</td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <div class="section">
+
+        <h2 style="margin-bottom:15px;">System Status</h2>
+
+        <div class="status-grid">
+
+            <div class="status">
+                Kafka
+                <div class="green">● Connected</div>
+            </div>
+
+            <div class="status">
+                Redis
+                <div class="green">● Connected</div>
+            </div>
+
+            <div class="status">
+                API
+                <div id="apiStatus" class="green">● Connected</div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+const ctx = document.getElementById('runRateChart');
+
+const chart = new Chart(ctx,{
+    type:'line',
+    data:{
+        labels:[],
+        datasets:[{
+            label:'Run Rate',
+            data:[]
+        }]
+    },
+    options:{
+        responsive:true
+    }
+});
+
+let point = 0;
+
+async function fetchStats(){
+
+    try{
+
+        const response =
+        await fetch(
+        "http://localhost:8080/matches/ipl_final_2026"
+        );
+
+        const data = await response.json();
+
+        document.getElementById("score")
+            .innerText =
+            `${data.Score}/${data.Wickets}`;
+
+        document.getElementById("runrate")
+            .innerText =
+            Number(data.RunRate).toFixed(2);
+
+        document.getElementById("fours")
+            .innerText =
+            data.Fours;
+
+        document.getElementById("sixes")
+            .innerText =
+            data.Sixes;
+
+        document.getElementById("balls")
+            .innerText =
+            data.Balls;
+
+        document.getElementById("apiStatus")
+            .innerHTML =
+            '<span class="green">● Connected</span>';
+
+        point++;
+
+        chart.data.labels.push(point);
+
+        chart.data.datasets[0].data.push(
+            data.RunRate
+        );
+
+        if(chart.data.labels.length > 20){
+
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+        }
+
+        chart.update();
+
+    }
+    catch(err){
+
+        document.getElementById("apiStatus")
+            .innerHTML =
+            '<span class="red">● Disconnected</span>';
+
+        console.error(err);
+    }
+}
+
+fetchStats();
+
+setInterval(
+    fetchStats,
+    1000
+);
+
+</script>
+
+</body>
+</html>
